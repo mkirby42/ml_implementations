@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 def generate_signal(sample_rate, frequency, amplitude, noise_level, phase_offset, duration=1.0):
     """
@@ -55,3 +57,33 @@ def generate_signal(sample_rate, frequency, amplitude, noise_level, phase_offset
     signal = clean_signal + noise
     
     return t, signal
+
+@dataclass
+class SignalConfig:
+    frequency: float | tuple[float, float]
+    amplitude: float
+    noise_level: float
+    phase_offset: float
+
+def generate_composite_signal(duration_seconds: float = 60 * 20, sample_rate: int = 100, signal_configs: list[SignalConfig] = []):
+    signals = []
+    t = None
+    for config in signal_configs:
+        t, signal = generate_signal(sample_rate, 
+                                    config.frequency, 
+                                    config.amplitude, 
+                                    config.noise_level, 
+                                    config.phase_offset, 
+                                    duration_seconds)
+        signals.append(signal)
+    composite_signal = np.sum(np.array(signals), axis=0)
+    return t, composite_signal
+
+def generate_batches(signal: np.ndarray, sample_rate: int, batch_duration_seconds: float = 30, overlap_seconds: float = 1):
+    batch_size = batch_duration_seconds * sample_rate
+    overlap = overlap_seconds * sample_rate
+
+    step = batch_size - overlap
+
+    batches = sliding_window_view(signal, batch_size)[::step]
+    return batches
